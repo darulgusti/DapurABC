@@ -244,6 +244,9 @@ function displayData(filteredData = registrants) {
         <button class="clear-all-btn" onclick="clearAllData()">
             <i class="fas fa-trash"></i> Hapus Semua Data (${filteredData.length})
         </button>
+        <button class="export-btn" onclick="exportToExcel()">
+            <i class="fas fa-file-excel"></i> Export ke Excel
+        </button>
     `;
     
     dataTable.innerHTML = tableHTML;
@@ -330,6 +333,36 @@ function clearSearch() {
     document.getElementById('searchInput').value = '';
     currentPage = 1;
     Database.loadAllData();
+}
+
+function exportToExcel() {
+    if (!registrants.length) {
+        alert('Tidak ada data untuk diexport!');
+        return;
+    }
+    // Buat array header dan data
+    const header = [
+        'Nama', 'TTL', 'Jenis Kelamin', 'Tinggi/Berat', 'Sekolah', 'No HP', 'Alamat', 'Pengalaman', 'Club', 'Nama Ortu', 'Pekerjaan Ortu', 'No HP Ortu', 'Waktu'
+    ];
+    const data = registrants.map(r => [
+        r.nama || '',
+        r.ttl || '',
+        r.jenis_kelamin || '',
+        r.tinggi_berat || '',
+        r.sekolah || '',
+        r.no_hp || '',
+        r.alamat || '',
+        r.pengalaman || '',
+        r.club || '',
+        r.nama_ortu || '',
+        r.pekerjaan_ortu || '',
+        r.no_hp_ortu || '',
+        r.timestamp || ''
+    ]);
+    const ws = XLSX.utils.aoa_to_sheet([header, ...data]);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, 'Pendaftar');
+    XLSX.writeFile(wb, 'data_pendaftar_crown_basketball.xlsx');
 }
 
 // Event Listeners

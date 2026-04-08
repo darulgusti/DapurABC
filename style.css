@@ -198,6 +198,30 @@ header {
     box-shadow: 0 10px 25px rgba(255,107,107,0.4);
 }
 
+.export-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+    float: right;
+    margin-bottom: 20px;
+    padding: 14px 22px;
+    background: linear-gradient(135deg, #28a745, #2dcc71);
+    color: white;
+    border: none;
+    border-radius: 12px;
+    font-size: 1rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: transform 0.3s ease, box-shadow 0.3s ease, background 0.3s ease;
+}
+
+.export-btn:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 10px 25px rgba(40, 167, 69, 0.35);
+    background: linear-gradient(135deg, #2dcc71, #28a745);
+}
+
 .search-container {
     display: flex;
     gap: 15px;
