@@ -1,0 +1,128 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Crown Basketball Academy - Pendaftaran</title>
+    <link rel="stylesheet" href="style.css">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+</head>
+<body>
+    <div class="container">
+        <header>
+            <div class="header-content">
+                <h1><i class="fas fa-basketball-ball"></i> Crown Basketball Academy</h1>
+                <p>Selamat Datang di Akademi Basket Terbaik!</p>
+            </div>
+        </header>
+
+        <div class="tabs">
+            <button class="tab-btn active" onclick="switchTab('form')">
+                <i class="fas fa-edit"></i> Form Pendaftaran
+            </button>
+            <button class="tab-btn" onclick="switchTab('data')">
+                <i class="fas fa-list"></i> Data Pendaftar
+            </button>
+        </div>
+
+        <!-- Tab Form -->
+        <div id="form-tab" class="tab-content active">
+            <div class="form-container">
+                <div class="welcome-message">
+                    <h3>Halo! Selamat siang. 🏀</h3>
+                    <p>Terima kasih sudah menghubungi <strong>Crown Basketball Academy</strong>. Senang sekali kamu tertarik untuk bergabung dengan academy basket kami.</p>
+                    <p><strong>Untuk proses pendataan awal, silakan isi format pendaftaran di bawah ini:</strong></p>
+                </div>
+
+                <form id="registrationForm" class="registration-form">
+                    <div class="form-group">
+                        <label>Nama:</label>
+                        <input type="text" id="nama" required>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label>Tempat, Tanggal Lahir:</label>
+                        <input type="text" id="ttl" placeholder="Contoh: Jakarta, 15 Januari 2010" required>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label>Jenis Kelamin:</label>
+                        <select id="jenis_kelamin" required>
+                            <option value="">Pilih...</option>
+                            <option value="Laki-laki">Laki-laki</option>
+                            <option value="Perempuan">Perempuan</option>
+                        </select>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label>Tinggi dan Berat Badan:</label>
+                        <input type="text" id="tinggi_berat" placeholder="Contoh: 165 cm, 55 kg" required>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label>Nama Sekolah:</label>
+                        <input type="text" id="sekolah" required>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label>No HP:</label>
+                        <input type="tel" id="no_hp" required>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label>Alamat Tempat Tinggal:</label>
+                        <textarea id="alamat" rows="3" required></textarea>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label>Pengalaman Bermain Basket:</label>
+                        <div class="radio-group">
+                            <label><input type="radio" name="pengalaman" value="Ya" required> Ya (Club: <input type="text" id="club" placeholder="Nama Club">)</label>
+                            <label><input type="radio" name="pengalaman" value="Tidak"> Tidak</label>
+                        </div>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label>Nama Orang Tua/Wali:</label>
+                        <input type="text" id="nama_ortu" required>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label>Pekerjaan Orang Tua/Wali:</label>
+                        <input type="text" id="pekerjaan_ortu" required>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label>No HP Orang Tua/Wali:</label>
+                        <input type="tel" id="no_hp_ortu" required>
+                    </div>
+                    
+                    <button type="submit" class="submit-btn">
+                        <i class="fas fa-paper-plane"></i> Daftarkan
+                    </button>
+                </form>
+            </div>
+        </div>
+
+        <!-- Tab Data -->
+        <div id="data-tab" class="tab-content">
+            <div class="search-container">
+                <select id="searchFilter">
+                    <option value="nama">Cari Nama</option>
+                    <option value="nama_ortu">Cari Nama Ortu</option>
+                </select>
+                <input type="text" id="searchInput" placeholder="Ketik untuk mencari...">
+                <button onclick="clearSearch()"><i class="fas fa-times"></i></button>
+            </div>
+            
+            <div class="data-container">
+                <div id="dataTable" class="data-table">
+                    <p>Tidak ada data pendaftar. Silakan isi form pendaftaran terlebih dahulu.</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="script.js"></script>
+</body>
+</html>
