@@ -157,6 +157,16 @@ function showErrorMessage(message) {
 
 function displayData(filteredData = registrants) {
     const dataTable = document.getElementById('dataTable');
+    const statsBox = document.getElementById('statsBox');
+    const totalCount = document.getElementById('totalCount');
+    
+    // Update total count
+    if (registrants.length > 0) {
+        totalCount.textContent = registrants.length;
+        statsBox.style.display = 'grid';
+    } else {
+        statsBox.style.display = 'none';
+    }
     
     if (filteredData.length === 0) {
         dataTable.innerHTML = `
