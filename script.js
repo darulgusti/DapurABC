@@ -81,8 +81,13 @@ class Database {
     }
 }
 
-// UI Functions
 function switchTab(tabName) {
+    // Cek apakah user bisa akses tab data
+    if (tabName === 'data' && !isAdminLoggedIn) {
+        alert('⚠️ Akses Ditolak!\n\nHanya admin yang bisa melihat data pendaftar.\nSilakan login sebagai admin terlebih dahulu.');
+        return;
+    }
+    
     document.querySelectorAll('.tab-btn').forEach(btn => btn.classList.remove('active'));
     event.target.classList.add('active');
     
@@ -95,7 +100,7 @@ function switchTab(tabName) {
 }
 
 async function submitForm(e) {
-    e.preventDefault();
+    if (e) e.preventDefault();
     
     const formData = {
         nama: document.getElementById('nama').value,
@@ -112,14 +117,22 @@ async function submitForm(e) {
         no_hp_ortu: document.getElementById('no_hp_ortu').value
     };
     
+    // Validasi input
+    if (!formData.nama || !formData.ttl || !formData.sekolah) {
+        alert('⚠️ Nama, TTL, dan Sekolah harus diisi!');
+        return;
+    }
+    
     try {
         await Database.addData(formData);
         document.getElementById('registrationForm').reset();
         showSuccessMessage();
-        switchTab('data');
-        currentPage = 1;
+        setTimeout(() => {
+            switchTab('data');
+            currentPage = 1;
+        }, 1000);
     } catch (error) {
-        showErrorMessage('Gagal menyimpan data: ' + error.message);
+        alert('❌ Gagal menyimpan data: ' + error.message);
     }
 }
 
@@ -244,9 +257,6 @@ function displayData(filteredData = registrants) {
         <button class="clear-all-btn" onclick="clearAllData()">
             <i class="fas fa-trash"></i> Hapus Semua Data (${filteredData.length})
         </button>
-        <button class="export-btn" onclick="exportToExcel()">
-            <i class="fas fa-file-excel"></i> Export ke Excel
-        </button>
     `;
     
     dataTable.innerHTML = tableHTML;
@@ -365,13 +375,92 @@ function exportToExcel() {
     XLSX.writeFile(wb, 'data_pendaftar_crown_basketball.xlsx');
 }
 
-// Event Listeners
-document.getElementById('registrationForm').addEventListener('submit', submitForm);
-document.getElementById('searchInput').addEventListener('input', searchData);
-document.getElementById('searchFilter').addEventListener('change', searchData);
+function importFromExcel() {
+    const input = document.createElement('input');
+    input.type = 'file';
+    input.accept = '.xlsx, .xls, .csv';
+    input.onchange = async (e) => {
+        const file = e.target.files[0];
+        if (!file) return;
+        
+        try {
+            const reader = new FileReader();
+            reader.onload = async (event) => {
+                const binaryString = event.target.result;
+                const workbook = XLSX.read(binaryString, { type: 'binary' });
+                const sheet = workbook.Sheets[workbook.SheetNames[0]];
+                const jsonData = XLSX.utils.sheet_to_json(sheet);
+                
+                if (jsonData.length === 0) {
+                    alert('⚠️ File Excel kosong atau format tidak sesuai');
+                    return;
+                }
+                
+                let successCount = 0;
+                let errorCount = 0;
+                
+                for (const row of jsonData) {
+                    try {
+                        const newData = {
+                            nama: row['Nama'] || row['nama'] || '',
+                            ttl: row['TTL'] || row['ttl'] || '',
+                            jenis_kelamin: row['Jenis Kelamin'] || row['jenis_kelamin'] || '',
+                            tinggi_berat: row['Tinggi/Berat'] || row['tinggi_berat'] || '',
+                            sekolah: row['Sekolah'] || row['sekolah'] || '',
+                            no_hp: row['No HP'] || row['no_hp'] || '',
+                            alamat: row['Alamat'] || row['alamat'] || '',
+                            pengalaman: row['Pengalaman'] || row['pengalaman'] || '',
+                            club: row['Club'] || row['club'] || '',
+                            nama_ortu: row['Nama Ortu'] || row['nama_ortu'] || '',
+                            pekerjaan_ortu: row['Pekerjaan Ortu'] || row['pekerjaan_ortu'] || '',
+                            no_hp_ortu: row['No HP Ortu'] || row['no_hp_ortu'] || ''
+                        };
+                        
+                        // Validasi minimal
+                        if (newData.nama && newData.sekolah) {
+                            await Database.addData(newData);
+                            successCount++;
+                        } else {
+                            errorCount++;
+                        }
+                    } catch (err) {
+                        errorCount++;
+                        console.error('Error importing row:', err);
+                    }
+                }
+                
+                // Refresh data
+                Database.loadAllData();
+                
+                // Tampilkan hasil
+                alert(`✅ Import selesai!\n\n✓ Berhasil: ${successCount} data\n✗ Gagal: ${errorCount} data\n\nTip: Pastikan file Excel memiliki kolom: Nama, Sekolah, TTL, dll`);
+            };
+            reader.readAsBinaryString(file);
+        } catch (error) {
+            alert('❌ Error membaca file: ' + error.message);
+        }
+    };
+    input.click();
+}
 
-// Responsive radio button handling
+// Event Listeners
 document.addEventListener('DOMContentLoaded', function() {
+    const form = document.getElementById('registrationForm');
+    if (form) {
+        form.addEventListener('submit', submitForm);
+    }
+    
+    const searchInput = document.getElementById('searchInput');
+    if (searchInput) {
+        searchInput.addEventListener('input', searchData);
+    }
+    
+    const searchFilter = document.getElementById('searchFilter');
+    if (searchFilter) {
+        searchFilter.addEventListener('change', searchData);
+    }
+    
+    // Responsive radio button handling
     document.querySelectorAll('input[name="pengalaman"]').forEach(radio => {
         radio.addEventListener('change', function() {
             const clubInput = document.getElementById('club');
@@ -407,6 +496,12 @@ document.addEventListener('DOMContentLoaded', async function() {
         `;
         document.head.appendChild(style);
         
+        // Initialize admin UI
+        if (localStorage.getItem('adminLoggedIn') === 'true') {
+            isAdminLoggedIn = true;
+        }
+        updateAdminUI();
+        
         console.log('🏀 Crown Basketball Academy - Database Ready!');
         console.log(`📊 Database: ${DB_NAME} v${DB_VERSION}`);
         console.log(`📱 Pagination: ${ITEMS_PER_PAGE} items/page`);
@@ -417,7 +512,178 @@ document.addEventListener('DOMContentLoaded', async function() {
     }
 });
 
-// Fallback untuk browser lama
-if (!window.indexedDB) {
-    console.warn('⚠️ IndexedDB tidak didukung. Data hanya sementara.');
+// Admin Login System
+let isAdminLoggedIn = false;
+const ADMIN_CREDENTIALS = {
+    username: 'admin',
+    password: 'admin123'
+};
+
+function openLoginModal() {
+    document.getElementById('loginModal').style.display = 'flex';
+    document.getElementById('adminUsername').focus();
+}
+
+function closeLoginModal() {
+    document.getElementById('loginModal').style.display = 'none';
+    document.getElementById('loginForm').reset();
+    document.getElementById('loginError').style.display = 'none';
+}
+
+function handleAdminLogin(e) {
+    e.preventDefault();
+    
+    const username = document.getElementById('adminUsername').value.trim();
+    const password = document.getElementById('adminPassword').value;
+    const errorDiv = document.getElementById('loginError');
+    
+    // Validasi credentials (simple validation)
+    if (username === ADMIN_CREDENTIALS.username && password === ADMIN_CREDENTIALS.password) {
+        isAdminLoggedIn = true;
+        localStorage.setItem('adminLoggedIn', 'true');
+        localStorage.setItem('adminUser', username);
+        
+        closeLoginModal();
+        updateAdminUI();
+        
+        // Success message
+        const successMsg = document.createElement('div');
+        successMsg.style.cssText = `
+            background: linear-gradient(135deg, #28a745, #20c997);
+            color: white;
+            padding: 15px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            font-weight: 600;
+        `;
+        successMsg.innerHTML = `
+            <i class="fas fa-check-circle"></i>
+            Login admin berhasil!
+        `;
+        document.querySelector('.container').insertBefore(successMsg, document.querySelector('.tabs'));
+        
+        setTimeout(() => successMsg.remove(), 3000);
+    } else {
+        // Error message
+        errorDiv.innerHTML = `
+            <i class="fas fa-exclamation-circle"></i>
+            Username atau password salah!
+        `;
+        errorDiv.style.display = 'flex';
+        document.getElementById('adminPassword').value = '';
+    }
+}
+
+function handleAdminLogout() {
+    isAdminLoggedIn = false;
+    localStorage.removeItem('adminLoggedIn');
+    localStorage.removeItem('adminUser');
+    
+    updateAdminUI();
+    
+    // Logout message
+    const logoutMsg = document.createElement('div');
+    logoutMsg.style.cssText = `
+        background: linear-gradient(135deg, #ffc107, #fd7e14);
+        color: #333;
+        padding: 15px;
+        border-radius: 8px;
+        margin-bottom: 20px;
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        font-weight: 600;
+    `;
+    logoutMsg.innerHTML = `
+        <i class="fas fa-sign-out-alt"></i>
+        Logout berhasil!
+    `;
+    document.querySelector('.container').insertBefore(logoutMsg, document.querySelector('.tabs'));
+    
+    setTimeout(() => logoutMsg.remove(), 3000);
+}
+
+function updateAdminUI() {
+    const loginBtn = document.getElementById('loginAdminBtn');
+    const adminPanel = document.getElementById('adminPanel');
+    const dataTabBtn = document.getElementById('dataTabBtn');
+    
+    if (isAdminLoggedIn) {
+        loginBtn.style.display = 'none';
+        adminPanel.style.display = 'flex';
+        dataTabBtn.style.display = 'block';
+        document.getElementById('adminUser').textContent = `👤 ${localStorage.getItem('adminUser') || 'Admin'}`;
+        
+        // Show admin features
+        showAdminFeatures();
+    } else {
+        loginBtn.style.display = 'flex';
+        adminPanel.style.display = 'none';
+        dataTabBtn.style.display = 'none';
+        
+        // Hide admin features
+        hideAdminFeatures();
+        
+        // Switch to form tab if user tries to access data tab
+        if (document.getElementById('data-tab').classList.contains('active')) {
+            document.querySelectorAll('.tab-btn').forEach(btn => btn.classList.remove('active'));
+            document.querySelector('[onclick="switchTab(\'form\')"]').classList.add('active');
+            document.querySelectorAll('.tab-content').forEach(content => content.classList.remove('active'));
+            document.getElementById('form-tab').classList.add('active');
+        }
+    }
+}
+
+function showAdminFeatures() {
+    // Enable export/import buttons
+    const exportBtn = document.querySelector('.export-btn');
+    const importBtn = document.querySelector('.import-btn');
+    const clearBtn = document.querySelector('.clear-all-btn');
+    
+    if (exportBtn) {
+        exportBtn.style.opacity = '1';
+        exportBtn.style.pointerEvents = 'auto';
+        exportBtn.title = '';
+    }
+    if (importBtn) {
+        importBtn.style.opacity = '1';
+        importBtn.style.pointerEvents = 'auto';
+        importBtn.title = '';
+    }
+    if (clearBtn) {
+        clearBtn.style.opacity = '1';
+        clearBtn.style.pointerEvents = 'auto';
+        clearBtn.title = '';
+    }
+}
+
+function hideAdminFeatures() {
+    // Disable export/import buttons
+    const exportBtn = document.querySelector('.export-btn');
+    const importBtn = document.querySelector('.import-btn');
+    const clearBtn = document.querySelector('.clear-all-btn');
+    
+    if (exportBtn) {
+        exportBtn.style.opacity = '0.5';
+        exportBtn.style.pointerEvents = 'none';
+        exportBtn.title = 'Fitur ini hanya tersedia untuk admin. Login terlebih dahulu.';
+    }
+    if (importBtn) {
+        importBtn.style.opacity = '0.5';
+        importBtn.style.pointerEvents = 'none';
+        importBtn.title = 'Fitur ini hanya tersedia untuk admin. Login terlebih dahulu.';
+    }
+    if (clearBtn) {
+        clearBtn.style.opacity = '0.5';
+        clearBtn.style.pointerEvents = 'none';
+        clearBtn.title = 'Fitur ini hanya tersedia untuk admin. Login terlebih dahulu.';
+    }
+}
+
+// Check if admin is already logged in
+if (localStorage.getItem('adminLoggedIn') === 'true') {
+    isAdminLoggedIn = true;
 }
