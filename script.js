@@ -861,8 +861,8 @@ async function deleteData(id) {
 // Admin Login System
 let isAdminLoggedIn = false;
 const ADMIN_CREDENTIALS = {
-    username: 'admin',
-    password: 'admin123'
+    username: 'cendekia',
+    password: 'deandra'
 };
 
 function openLoginModal() {
