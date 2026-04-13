@@ -79,60 +79,78 @@ class Database {
             request.onerror = () => reject(request.error);
         });
     }
+    
+    static async updateData(id, updatedData) {
+        return new Promise((resolve, reject) => {
+            const transaction = db.transaction(['registrants'], 'readwrite');
+            const store = transaction.objectStore('registrants');
+            const request = store.get(id);
+            
+            request.onsuccess = () => {
+                const data = request.result;
+                const newData = { ...data, ...updatedData };
+                const updateRequest = store.put(newData);
+                
+                updateRequest.onsuccess = () => {
+                    resolve(updateRequest.result);
+                    this.loadAllData();
+                };
+                updateRequest.onerror = () => reject(updateRequest.error);
+            };
+            request.onerror = () => reject(request.error);
+        });
+    }
+    
+    static async deleteData(id) {
+        return new Promise((resolve, reject) => {
+            const transaction = db.transaction(['registrants'], 'readwrite');
+            const store = transaction.objectStore('registrants');
+            const request = store.delete(id);
+            
+            request.onsuccess = () => {
+                resolve();
+                this.loadAllData();
+            };
+            request.onerror = () => reject(request.error);
+        });
+    }
+    
+    static async getDataById(id) {
+        return new Promise((resolve, reject) => {
+            const transaction = db.transaction(['registrants'], 'readonly');
+            const store = transaction.objectStore('registrants');
+            const request = store.get(id);
+            
+            request.onsuccess = () => resolve(request.result);
+            request.onerror = () => reject(request.error);
+        });
+    }
 }
 
 function switchTab(tabName) {
     // Cek apakah user bisa akses tab data
     if (tabName === 'data' && !isAdminLoggedIn) {
-        alert('⚠️ Akses Ditolak!\n\nHanya admin yang bisa melihat data pendaftar.\nSilakan login sebagai admin terlebih dahulu.');
+        console.warn('Akses ditolak: bukan admin');
         return;
     }
     
+    // Remove active from all tabs and contents
     document.querySelectorAll('.tab-btn').forEach(btn => btn.classList.remove('active'));
-    event.target.classList.add('active');
-    
     document.querySelectorAll('.tab-content').forEach(content => content.classList.remove('active'));
-    document.getElementById(tabName + '-tab').classList.add('active');
+    
+    // Add active to selected tab and content
+    const tabBtn = document.querySelector(`[onclick="switchTab('${tabName}')"]`);
+    if (tabBtn) {
+        tabBtn.classList.add('active');
+    }
+    
+    const tabContent = document.getElementById(tabName + '-tab');
+    if (tabContent) {
+        tabContent.classList.add('active');
+    }
     
     if (tabName === 'data') {
         Database.loadAllData();
-    }
-}
-
-async function submitForm(e) {
-    if (e) e.preventDefault();
-    
-    const formData = {
-        nama: document.getElementById('nama').value,
-        ttl: document.getElementById('ttl').value,
-        jenis_kelamin: document.getElementById('jenis_kelamin').value,
-        tinggi_berat: document.getElementById('tinggi_berat').value,
-        sekolah: document.getElementById('sekolah').value,
-        no_hp: document.getElementById('no_hp').value,
-        alamat: document.getElementById('alamat').value,
-        pengalaman: document.querySelector('input[name="pengalaman"]:checked')?.value || '',
-        club: document.getElementById('club').value,
-        nama_ortu: document.getElementById('nama_ortu').value,
-        pekerjaan_ortu: document.getElementById('pekerjaan_ortu').value,
-        no_hp_ortu: document.getElementById('no_hp_ortu').value
-    };
-    
-    // Validasi input
-    if (!formData.nama || !formData.ttl || !formData.sekolah) {
-        alert('⚠️ Nama, TTL, dan Sekolah harus diisi!');
-        return;
-    }
-    
-    try {
-        await Database.addData(formData);
-        document.getElementById('registrationForm').reset();
-        showSuccessMessage();
-        setTimeout(() => {
-            switchTab('data');
-            currentPage = 1;
-        }, 1000);
-    } catch (error) {
-        alert('❌ Gagal menyimpan data: ' + error.message);
     }
 }
 
@@ -212,6 +230,7 @@ function displayData(filteredData = registrants) {
                         <th><i class="fas fa-user-friends"></i> Nama Ortu</th>
                         <th><i class="fas fa-basketball-ball"></i> Pengalaman</th>
                         <th><i class="fas fa-clock"></i> Waktu</th>
+                        <th style="text-align: center;"><i class="fas fa-cogs"></i> Aksi</th>
                     </tr>
                 </thead>
                 <tbody>
@@ -229,6 +248,14 @@ function displayData(filteredData = registrants) {
                                 ${data.club ? `<br><small style="color: #6c757d;">(${data.club})</small>` : ''}
                             </td>
                             <td style="font-size: 0.85rem; color: #6c757d;">${data.timestamp}</td>
+                            <td style="text-align: center;">
+                                <button class="action-btn edit-btn" onclick="openEditModal(${data.id})" title="Edit Data">
+                                    <i class="fas fa-edit"></i>
+                                </button>
+                                <button class="action-btn delete-btn" onclick="deleteData(${data.id})" title="Hapus Data">
+                                    <i class="fas fa-trash"></i>
+                                </button>
+                            </td>
                         </tr>
                     `).join('')}
                 </tbody>
@@ -398,6 +425,7 @@ function importFromExcel() {
                 
                 let successCount = 0;
                 let errorCount = 0;
+                const importedIds = [];
                 
                 for (const row of jsonData) {
                     try {
@@ -413,12 +441,14 @@ function importFromExcel() {
                             club: row['Club'] || row['club'] || '',
                             nama_ortu: row['Nama Ortu'] || row['nama_ortu'] || '',
                             pekerjaan_ortu: row['Pekerjaan Ortu'] || row['pekerjaan_ortu'] || '',
-                            no_hp_ortu: row['No HP Ortu'] || row['no_hp_ortu'] || ''
+                            no_hp_ortu: row['No HP Ortu'] || row['no_hp_ortu'] || '',
+                            source: 'imported' // Mark as imported
                         };
                         
                         // Validasi minimal
                         if (newData.nama && newData.sekolah) {
-                            await Database.addData(newData);
+                            const id = await Database.addData(newData);
+                            importedIds.push(id);
                             successCount++;
                         } else {
                             errorCount++;
@@ -432,8 +462,46 @@ function importFromExcel() {
                 // Refresh data
                 Database.loadAllData();
                 
-                // Tampilkan hasil
-                alert(`✅ Import selesai!\n\n✓ Berhasil: ${successCount} data\n✗ Gagal: ${errorCount} data\n\nTip: Pastikan file Excel memiliki kolom: Nama, Sekolah, TTL, dll`);
+                // Show success message with detailed info
+                const importMsg = document.createElement('div');
+                importMsg.style.cssText = `
+                    background: linear-gradient(135deg, #17a2b8, #20c997);
+                    color: white;
+                    padding: 20px;
+                    border-radius: 12px;
+                    margin-bottom: 25px;
+                    display: flex;
+                    align-items: center;
+                    gap: 15px;
+                    font-size: 1.05rem;
+                    font-weight: 600;
+                    animation: slideIn 0.5s ease;
+                `;
+                importMsg.innerHTML = `
+                    <i class="fas fa-check-circle" style="font-size: 1.5rem;"></i>
+                    <div>
+                        <div>✅ Import Excel berhasil!</div>
+                        <div style="font-size: 0.9rem; margin-top: 5px;">
+                            ${successCount} data berhasil diimport${errorCount > 0 ? ` | ${errorCount} data gagal` : ''}
+                        </div>
+                        <div style="font-size: 0.85rem; margin-top: 8px; opacity: 0.9;">
+                            💡 Data yang diimport sekarang bisa diedit dan dihapus sama seperti data lainnya
+                        </div>
+                    </div>
+                `;
+                document.querySelector('.data-container').prepend(importMsg);
+                
+                // Auto hide message
+                setTimeout(() => {
+                    importMsg.style.animation = 'slideOut 0.5s ease';
+                    setTimeout(() => importMsg.remove(), 500);
+                }, 5000);
+                
+                // Switch to data tab to show imported data
+                setTimeout(() => {
+                    switchTab('data');
+                    currentPage = 1;
+                }, 1500);
             };
             reader.readAsBinaryString(file);
         } catch (error) {
@@ -511,6 +579,284 @@ document.addEventListener('DOMContentLoaded', async function() {
         showErrorMessage('Database gagal dimuat. Gunakan browser modern.');
     }
 });
+
+// Edit & Delete Functions
+let editingDataId = null;
+
+async function openEditModal(id) {
+    if (!isAdminLoggedIn) {
+        console.warn('Akses ditolak: User bukan admin');
+        return;
+    }
+    
+    try {
+        // Ensure db is ready
+        if (!db) {
+            console.error('Database belum siap');
+            return;
+        }
+        
+        const data = await Database.getDataById(id);
+        if (!data) {
+            console.error('Data with id', id, 'not found');
+            return;
+        }
+        
+        editingDataId = id;
+        
+        // Fill form with data - handle undefined values
+        document.getElementById('nama').value = data.nama || '';
+        document.getElementById('ttl').value = data.ttl || '';
+        document.getElementById('jenis_kelamin').value = data.jenis_kelamin || '';
+        document.getElementById('tinggi_berat').value = data.tinggi_berat || '';
+        document.getElementById('sekolah').value = data.sekolah || '';
+        document.getElementById('no_hp').value = data.no_hp || '';
+        document.getElementById('alamat').value = data.alamat || '';
+        document.getElementById('nama_ortu').value = data.nama_ortu || '';
+        document.getElementById('pekerjaan_ortu').value = data.pekerjaan_ortu || '';
+        document.getElementById('no_hp_ortu').value = data.no_hp_ortu || '';
+        
+        // Handle pengalaman radio button
+        document.querySelectorAll('input[name="pengalaman"]').forEach(radio => {
+            radio.checked = radio.value === data.pengalaman;
+        });
+        
+        // Handle club input
+        const clubInput = document.getElementById('club');
+        clubInput.value = data.club || '';
+        if (data.pengalaman === 'Ya') {
+            clubInput.disabled = false;
+            clubInput.required = true;
+        } else {
+            clubInput.disabled = true;
+            clubInput.required = false;
+        }
+        
+        // Change button text
+        const submitBtn = document.querySelector('.submit-btn');
+        submitBtn.innerHTML = '<i class="fas fa-save"></i> Simpan Perubahan';
+        submitBtn.id = 'updateBtn';
+        
+        // Show cancel button
+        const cancelEditBtn = document.getElementById('cancelEditBtn') || createCancelEditBtn();
+        cancelEditBtn.style.display = 'inline-block';
+        
+        // Show info message if data is imported
+        if (data.source === 'imported') {
+            const infoMsg = document.createElement('div');
+            infoMsg.style.cssText = `
+                background: linear-gradient(135deg, #ffc107, #fd7e14);
+                color: #333;
+                padding: 12px 15px;
+                border-radius: 8px;
+                margin-bottom: 20px;
+                display: flex;
+                align-items: center;
+                gap: 10px;
+                font-size: 0.95rem;
+            `;
+            infoMsg.innerHTML = `
+                <i class="fas fa-info-circle"></i>
+                <span>Mengedit data yang diimport dari Excel</span>
+            `;
+            
+            // Remove old info message if exists
+            const oldMsg = document.querySelector('.form-container > div:first-child');
+            if (oldMsg && oldMsg.textContent.includes('Mengedit data yang diimport')) {
+                oldMsg.remove();
+            }
+            
+            document.querySelector('.form-container').prepend(infoMsg);
+        }
+        
+        // Switch to form tab
+        document.querySelectorAll('.tab-btn').forEach(btn => btn.classList.remove('active'));
+        document.querySelector('[onclick="switchTab(\'form\')"]').classList.add('active');
+        document.querySelectorAll('.tab-content').forEach(content => content.classList.remove('active'));
+        document.getElementById('form-tab').classList.add('active');
+        
+        // Scroll to form
+        setTimeout(() => {
+            document.querySelector('.form-container').scrollIntoView({ behavior: 'smooth' });
+        }, 100);
+        
+    } catch (error) {
+        console.error('Error in openEditModal:', error);
+    }
+}
+
+function createCancelEditBtn() {
+    const btn = document.createElement('button');
+    btn.id = 'cancelEditBtn';
+    btn.type = 'button';
+    btn.className = 'cancel-edit-btn';
+    btn.innerHTML = '<i class="fas fa-times"></i> Batal Edit';
+    btn.onclick = cancelEdit;
+    btn.style.display = 'none';
+    document.querySelector('.form-container').appendChild(btn);
+    return btn;
+}
+
+function cancelEdit() {
+    editingDataId = null;
+    document.getElementById('registrationForm').reset();
+    document.querySelector('.submit-btn').innerHTML = '<i class="fas fa-paper-plane"></i> Daftarkan';
+    document.querySelector('.submit-btn').id = '';
+    document.getElementById('cancelEditBtn').style.display = 'none';
+}
+
+async function submitForm(e) {
+    if (e) e.preventDefault();
+    
+    const formData = {
+        nama: document.getElementById('nama').value.trim(),
+        ttl: document.getElementById('ttl').value.trim(),
+        jenis_kelamin: document.getElementById('jenis_kelamin').value,
+        tinggi_berat: document.getElementById('tinggi_berat').value.trim(),
+        sekolah: document.getElementById('sekolah').value.trim(),
+        no_hp: document.getElementById('no_hp').value.trim(),
+        alamat: document.getElementById('alamat').value.trim(),
+        pengalaman: document.querySelector('input[name="pengalaman"]:checked')?.value || '',
+        club: document.getElementById('club').value.trim(),
+        nama_ortu: document.getElementById('nama_ortu').value.trim(),
+        pekerjaan_ortu: document.getElementById('pekerjaan_ortu').value.trim(),
+        no_hp_ortu: document.getElementById('no_hp_ortu').value.trim()
+    };
+    
+    // Validasi input
+    if (!formData.nama || !formData.ttl || !formData.sekolah) {
+        alert('⚠️ Nama, TTL, dan Sekolah harus diisi!');
+        return;
+    }
+    
+    try {
+        if (editingDataId) {
+            // Update existing data
+            await Database.updateData(editingDataId, formData);
+            
+            // Show success notification
+            const successMsg = document.createElement('div');
+            successMsg.style.cssText = `
+                background: linear-gradient(135deg, #28a745, #20c997);
+                color: white;
+                padding: 15px;
+                border-radius: 8px;
+                margin-bottom: 20px;
+                display: flex;
+                align-items: center;
+                gap: 10px;
+                font-weight: 600;
+                animation: slideIn 0.5s ease;
+            `;
+            successMsg.innerHTML = `
+                <i class="fas fa-check-circle"></i>
+                ✅ Data berhasil diperbarui!
+            `;
+            document.querySelector('.form-container').prepend(successMsg);
+            
+            // Reset form and state
+            cancelEdit();
+            document.getElementById('registrationForm').reset();
+            
+            // Immediately switch to data tab
+            setTimeout(() => {
+                // Remove success message
+                if (successMsg.parentElement) {
+                    successMsg.remove();
+                }
+                // Switch tab
+                switchTab('data');
+                currentPage = 1;
+                // Scroll to top of data table
+                setTimeout(() => {
+                    document.querySelector('.data-container').scrollIntoView({ behavior: 'smooth' });
+                }, 100);
+            }, 800);
+        } else {
+            // Add new data
+            await Database.addData(formData);
+            
+            // Show success notification
+            const successMsg = document.createElement('div');
+            successMsg.style.cssText = `
+                background: linear-gradient(135deg, #28a745, #20c997);
+                color: white;
+                padding: 15px;
+                border-radius: 8px;
+                margin-bottom: 20px;
+                display: flex;
+                align-items: center;
+                gap: 10px;
+                font-weight: 600;
+                animation: slideIn 0.5s ease;
+            `;
+            successMsg.innerHTML = `
+                <i class="fas fa-check-circle"></i>
+                ✅ Data berhasil disimpan ke Database Lokal!
+            `;
+            document.querySelector('.form-container').prepend(successMsg);
+            
+            // Reset form
+            document.getElementById('registrationForm').reset();
+            
+            // Switch to data tab
+            setTimeout(() => {
+                if (successMsg.parentElement) {
+                    successMsg.remove();
+                }
+                switchTab('data');
+                currentPage = 1;
+                // Scroll to top of data table
+                setTimeout(() => {
+                    document.querySelector('.data-container').scrollIntoView({ behavior: 'smooth' });
+                }, 100);
+            }, 800);
+        }
+    } catch (error) {
+        console.error('Error in submitForm:', error);
+        // Silent fail - just log to console
+        console.log('Failed to save data');
+    }
+}
+
+async function deleteData(id) {
+    if (!isAdminLoggedIn) {
+        console.warn('Akses ditolak: User bukan admin');
+        return;
+    }
+    
+    if (confirm('⚠️ Yakin ingin menghapus data ini?\n\nData tidak bisa dikembalikan!')) {
+        try {
+            await Database.deleteData(id);
+            
+            // Show success notification
+            const successMsg = document.createElement('div');
+            successMsg.style.cssText = `
+                background: linear-gradient(135deg, #ffc107, #fd7e14);
+                color: #333;
+                padding: 15px;
+                border-radius: 8px;
+                margin-bottom: 20px;
+                display: flex;
+                align-items: center;
+                gap: 10px;
+                font-weight: 600;
+                animation: slideIn 0.5s ease;
+            `;
+            successMsg.innerHTML = `
+                <i class="fas fa-trash"></i>
+                ✅ Data berhasil dihapus!
+            `;
+            document.querySelector('.data-container').prepend(successMsg);
+            
+            setTimeout(() => {
+                successMsg.remove();
+            }, 3000);
+        } catch (error) {
+            console.error('Error deleting data:', error);
+        }
+    }
+}
 
 // Admin Login System
 let isAdminLoggedIn = false;
