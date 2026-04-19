@@ -9,6 +9,36 @@ let currentPage = 1;
 const ITEMS_PER_PAGE = 3;
 let totalPages = 1;
 
+// Sort order: 'asc' = terlama ke terbaru, 'desc' = terbaru ke terlama
+let sortOrder = 'asc';
+
+function parseTimestamp(ts) {
+    if (!ts) return new Date(0);
+    // Format: "18/4/2026, 12.44.30"
+    const [datePart, timePart] = ts.split(', ');
+    if (!datePart || !timePart) return new Date(0);
+    const [day, month, year] = datePart.split('/');
+    const [hour, min, sec] = timePart.split('.');
+    return new Date(year, month - 1, day, hour, min, sec);
+}
+
+function toggleSort() {
+    sortOrder = sortOrder === 'asc' ? 'desc' : 'asc';
+    const btn = document.getElementById('sortBtn');
+    const label = document.getElementById('sortLabel');
+    if (sortOrder === 'asc') {
+        btn.style.background = 'linear-gradient(135deg, #6f42c1, #8e44ad)';
+        label.textContent = 'Terlama';
+        btn.querySelector('i').className = 'fas fa-sort-amount-up';
+    } else {
+        btn.style.background = 'linear-gradient(135deg, #e83e8c, #c0392b)';
+        label.textContent = 'Terbaru';
+        btn.querySelector('i').className = 'fas fa-sort-amount-down';
+    }
+    currentPage = 1;
+    Database.loadAllData();
+}
+
 class Database {
     static init() {
         return new Promise((resolve, reject) => {
@@ -43,7 +73,11 @@ class Database {
         const request = store.getAll();
         
         request.onsuccess = () => {
-            registrants = request.result.reverse(); // Terbaru duluan
+            registrants = request.result.sort((a, b) => {
+                const ta = parseTimestamp(a.timestamp);
+                const tb = parseTimestamp(b.timestamp);
+                return sortOrder === 'asc' ? ta - tb : tb - ta;
+            });
             displayData(registrants);
         };
     }
@@ -861,8 +895,8 @@ async function deleteData(id) {
 // Admin Login System
 let isAdminLoggedIn = false;
 const ADMIN_CREDENTIALS = {
-    username: 'cendekia',
-    password: 'deandra'
+    username: 'admin',
+    password: 'admin123'
 };
 
 function openLoginModal() {

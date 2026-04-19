@@ -118,6 +118,9 @@
                 </select>
                 <input type="text" id="searchInput" placeholder="Ketik untuk mencari...">
                 <button onclick="clearSearch()"><i class="fas fa-times"></i></button>
+                <button id="sortBtn" onclick="toggleSort()" title="Urutkan berdasarkan waktu" style="background: linear-gradient(135deg, #6f42c1, #8e44ad); color: white; border: none; border-radius: 8px; padding: 8px 14px; cursor: pointer; font-weight: 600; display: flex; align-items: center; gap: 6px; white-space: nowrap;">
+                    <i class="fas fa-sort-amount-up"></i> <span id="sortLabel">Terlama</span>
+                </button>
             </div>
             
             <div class="stats-box" id="statsBox" style="display:none;">
